@@ -9,7 +9,7 @@ from planning_utils import a_star, heuristic, create_grid
 from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
-from udacidrone.frame_utils import global_to_local
+from udacidrone.frame_utils import global_to_local, local_to_global
 
 
 class States(Enum):
@@ -110,6 +110,14 @@ class MotionPlanning(Drone):
         print("Sending waypoints to simulator ...")
         data = msgpack.dumps(self.waypoints)
         self.connection._master.write(data)
+        
+    def getHomePosition(self):
+      with open('colliders.csv', 'r') as fh:
+        position = fh.readline()
+        lat_str, lon_str = position.split(',')
+        lat = lat_str.split(' ')[-1]
+        lon = lon_str.split(' ')[-1]
+        return float(lat), float(lon)
 
     def plan_path(self):
         self.flight_state = States.PLANNING
@@ -120,15 +128,17 @@ class MotionPlanning(Drone):
         self.target_position[2] = TARGET_ALTITUDE
 
         # TODO: read lat0, lon0 from colliders into floating point values
+        lat0, lon0 = self.getHomePosition()
         
         # TODO: set home position to (lat0, lon0, 0)
-
-        # TODO: retrieve current global position
- 
+        self.set_home_position(lon0, lat0, 0)
+        
         # TODO: convert to current local position using global_to_local()
+        local_position = global_to_local(self.global_position, self.global_home)
         
         print('global home {0}, position {1}, local position {2}'.format(self.global_home, self.global_position,
                                                                          self.local_position))
+        
         # Read in obstacle map
         data = np.loadtxt('colliders.csv', delimiter=',', dtype='Float64', skiprows=2)
         
@@ -136,11 +146,12 @@ class MotionPlanning(Drone):
         grid, north_offset, east_offset = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
         print("North offset = {0}, east offset = {1}".format(north_offset, east_offset))
         # Define starting point on the grid (this is just grid center)
-        grid_start = (-north_offset, -east_offset)
-        # TODO: convert start position to current position rather than map center
+        grid_start = (int(local_position[0]) - north_offset, int(local_position[1]) - east_offset)
         
+        # TODO: convert start position to current position rather than map center
         # Set goal as some arbitrary position on the grid
-        grid_goal = (-north_offset + 10, -east_offset + 10)
+        local_goal = global_to_local((-122.3977699,  37.792540, TARGET_ALTITUDE), self.global_home)
+        grid_goal = (int(local_goal[0]) - north_offset, int(local_goal[1]) - east_offset)
         # TODO: adapt to set goal as latitude / longitude position and convert
 
         # Run A* to find a path from start to goal
@@ -154,6 +165,8 @@ class MotionPlanning(Drone):
 
         # Convert path to waypoints
         waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in path]
+        import pdb
+        pdb.set_trace()
         # Set self.waypoints
         self.waypoints = waypoints
         # TODO: send waypoints to sim

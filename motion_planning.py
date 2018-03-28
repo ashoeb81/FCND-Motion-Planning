@@ -118,6 +118,33 @@ class MotionPlanning(Drone):
         lat = lat_str.split(' ')[-1]
         lon = lon_str.split(' ')[-1]
         return float(lat), float(lon)
+      
+    def point(self, p):
+      return np.array([p[0], p[1], 1.]).reshape(1, -1)
+  
+    def collinearity_check(self, p1, p2, p3, epsilon=1e-6):   
+      m = np.concatenate((p1, p2, p3), axis=0)
+      det = np.linalg.det(m)
+      return abs(det) < epsilon
+    
+    def prune_path(self, path):
+      pruned_path = []
+      pruned_path.append(path[0])
+      idx=0
+      while idx + 2 < len(path):
+        if self.collinearity_check(self.point(path[idx]),
+                                   self.point(path[idx+1]),
+                                   self.point(path[idx+2])):
+          pruned_path.append(path[idx+2])
+        else:
+          pruned_path.extend([path[idx+1], path[idx+2]])
+        idx += 2
+      
+      if idx + 2 == len(path)-1:
+        return pruned_path
+      else:
+        pruned_path.extend(path[idx+1:])
+        return pruned_path
 
     def plan_path(self):
         self.flight_state = States.PLANNING
@@ -136,8 +163,8 @@ class MotionPlanning(Drone):
         # TODO: convert to current local position using global_to_local()
         local_position = global_to_local(self.global_position, self.global_home)
         
-        print('global home {0}, position {1}, local position {2}'.format(self.global_home, self.global_position,
-                                                                         self.local_position))
+        print('global home {0}, position {1}, local position {2}'.format(
+          self.global_home, self.global_position, self.local_position))
         
         # Read in obstacle map
         data = np.loadtxt('colliders.csv', delimiter=',', dtype='Float64', skiprows=2)
@@ -150,7 +177,7 @@ class MotionPlanning(Drone):
         
         # TODO: convert start position to current position rather than map center
         # Set goal as some arbitrary position on the grid
-        local_goal = global_to_local((-122.3977699,  37.792540, TARGET_ALTITUDE), self.global_home)
+        local_goal = global_to_local((-122.396332, 37.795121, TARGET_ALTITUDE), self.global_home)
         grid_goal = (int(local_goal[0]) - north_offset, int(local_goal[1]) - east_offset)
         # TODO: adapt to set goal as latitude / longitude position and convert
 
@@ -162,11 +189,11 @@ class MotionPlanning(Drone):
         
         # TODO: prune path to minimize number of waypoints
         # TODO (if you're feeling ambitious): Try a different approach altogether!
+        pruned_path = self.prune_path(path)
+        print('Original Path Length %d | New Path Length: %d' % (len(path), len(pruned_path)))
 
         # Convert path to waypoints
-        waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in path]
-        import pdb
-        pdb.set_trace()
+        waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in pruned_path]
         # Set self.waypoints
         self.waypoints = waypoints
         # TODO: send waypoints to sim

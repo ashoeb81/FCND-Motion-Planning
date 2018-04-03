@@ -112,6 +112,7 @@ class MotionPlanning(Drone):
         self.connection._master.write(data)
         
     def getHomePosition(self):
+      """Retrieves global home position from first line of map data file colliders.csv"""
       with open('colliders.csv', 'r') as fh:
         position = fh.readline()
         lat_str, lon_str = position.split(',')
@@ -120,14 +121,17 @@ class MotionPlanning(Drone):
         return float(lat), float(lon)
       
     def point(self, p):
+      """Constructs a 3D point from a 2D point"""
       return np.array([p[0], p[1], 1.]).reshape(1, -1)
   
-    def collinearity_check(self, p1, p2, p3, epsilon=1e-6):   
+    def collinearity_check(self, p1, p2, p3, epsilon=1e-6):
+      """Checks for point collinearity using the determinant."""
       m = np.concatenate((p1, p2, p3), axis=0)
       det = np.linalg.det(m)
       return abs(det) < epsilon
     
     def prune_path(self, path):
+      """Loops over path points and removes middle points of a line segment."""
       pruned_path = []
       pruned_path.append(path[0])
       idx=0

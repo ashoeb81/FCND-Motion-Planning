@@ -24,10 +24,12 @@ class States(Enum):
 
 class MotionPlanning(Drone):
 
-    def __init__(self, connection):
+    def __init__(self, connection, goal_lat, goal_lon):
         super().__init__(connection)
 
         self.target_position = np.array([0.0, 0.0, 0.0])
+        self.goal_lat = float(goal_lat)
+        self.goal_lon = float(goal_lon)
         self.waypoints = []
         self.in_mission = True
         self.check_state = {}
@@ -177,7 +179,7 @@ class MotionPlanning(Drone):
         
         # TODO: convert start position to current position rather than map center
         # Set goal as some arbitrary position on the grid
-        local_goal = global_to_local((-122.396332, 37.795121, TARGET_ALTITUDE), self.global_home)
+        local_goal = global_to_local((self.goal_lon, self.goal_lat, TARGET_ALTITUDE), self.global_home)
         grid_goal = (int(local_goal[0]) - north_offset, int(local_goal[1]) - east_offset)
         # TODO: adapt to set goal as latitude / longitude position and convert
 
@@ -216,10 +218,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=5760, help='Port number')
     parser.add_argument('--host', type=str, default='127.0.0.1', help="host address, i.e. '127.0.0.1'")
+    parser.add_argument('--goal_lat_lon', type=str, default='37.795121,-122.396332', help='Comma separated latitude longitude of destination')
     args = parser.parse_args()
 
     conn = MavlinkConnection('tcp:{0}:{1}'.format(args.host, args.port), timeout=60)
-    drone = MotionPlanning(conn)
+    lat,lon = args.goal_lat_lon.split(',')
+    drone = MotionPlanning(conn, float(lat), float(lon))
     time.sleep(1)
 
     drone.start()

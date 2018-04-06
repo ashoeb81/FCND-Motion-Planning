@@ -136,13 +136,9 @@ class MotionPlanning(Drone):
       pruned_path.append(path[0])
       idx=0
       while idx + 2 < len(path):
-        if self.collinearity_check(self.point(path[idx]),
-                                   self.point(path[idx+1]),
-                                   self.point(path[idx+2])):
-          pruned_path.append(path[idx+2])
-        else:
-          pruned_path.extend([path[idx+1], path[idx+2]])
-        idx += 2
+        if not self.collinearity_check(self.point(path[idx]), self.point(path[idx+1]), self.point(path[idx+2])):
+          pruned_path.append(path[idx+1])
+        idx += 1
       
       if idx + 2 == len(path)-1:
         return pruned_path
